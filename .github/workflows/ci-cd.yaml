@@ -43,7 +43,7 @@ jobs:
 
       # ETAP 1: Budowa lokalnego obrazu na architekturę domyślną (do skanowania CVE)
       - name: Budowa lokalnego obrazu do skanowania
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           load: true
