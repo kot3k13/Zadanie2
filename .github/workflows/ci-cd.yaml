@@ -75,7 +75,7 @@ jobs:
 
       # ETAP 4: Właściwa budowa Multi-Arch i Push (wykona się tylko, jeśli test Trivy przeszedł pomyślnie)
       - name: Build & Push (Multi-arch) do GHCR
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
