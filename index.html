@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Pogodynka - Kacper Kot</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        select, button { padding: 10px; font-size: 16px; margin-top: 10px;}
+    </style>
+</head>
+<body>
+    <h2>Wybierz lokalizację, aby sprawdzić pogodę na żywo:</h2>
+    <form method="POST" action="/">
+        <select name="city" id="city" onchange="updateCoords()">
+            <option value="Warszawa, Polska" data-lat="52.2297" data-lon="21.0122">Warszawa, Polska</option>
+            <option value="Londyn, Wielka Brytania" data-lat="51.5085" data-lon="-0.1257">Londyn, Wielka Brytania</option>
+            <option value="Tokio, Japonia" data-lat="35.6895" data-lon="139.6917">Tokio, Japonia</option>
+            <option value="Nowy Jork, USA" data-lat="40.7143" data-lon="-74.0060">Nowy Jork, USA</option>
+        </select>
+        <input type="hidden" name="lat" id="lat" value="52.2297">
+        <input type="hidden" name="lon" id="lon" value="21.0122">
+        <br>
+        <button type="submit">Sprawdź pogodę</button>
+    </form>
+
+    <script>
+        // Skrypt aktualizuje ukryte pola na podstawie wybranego miasta
+        function updateCoords() {
+            var sel = document.getElementById("city");
+            var opt = sel.options[sel.selectedIndex];
+            document.getElementById("lat").value = opt.getAttribute("data-lat");
+            document.getElementById("lon").value = opt.getAttribute("data-lon");
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+name: TCH - CI/CD Pipeline (Go App)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    tags: [ 'v*' ]
+
+env:
+  GHCR_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DOCKERHUB_CACHE_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/weather-cache
+
+jobs:
+  build-scan-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Pobranie kodu repozytorium
+        uses: actions/checkout@v4
+
+      - name: Konfiguracja QEMU (Wsparcie dla Multi-Arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Konfiguracja Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Logowanie do DockerHub (Na potrzeby Cache)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Logowanie do GHCR (GitHub Container Registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ETAP 1: Budowa lokalnego obrazu na architekturę domyślną (do skanowania CVE)
+      - name: Budowa lokalnego obrazu do skanowania
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: local-test:latest
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_CACHE_REPO }}:cache
+
+      # ETAP 2: Skanowanie docelowego obrazu narzędziem Trivy 
+      - name: Skaner Trivy (Test CVE Obrazu)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'local-test:latest'
+          format: 'table'
+          exit-code: '1' # Przerywa pipeline w przypadku wykrycia podatności
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # ETAP 3: Wygenerowanie inteligentnych tagów (SemVer + SHA)
+      - name: Strategia tagowania (Metadata Action)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=auto
+          tags: |
+            type=sha,priority=100,prefix=sha-,format=short
+            type=semver,priority=200,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # ETAP 4: Właściwa budowa Multi-Arch i Push (wykona się tylko, jeśli test Trivy przeszedł pomyślnie)
+      - name: Build & Push (Multi-arch) do GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_CACHE_REPO }}:cache
+          cache-to: type=registry,ref=${{ env.DOCKERHUB_CACHE_REPO }}:cache,mode=max
